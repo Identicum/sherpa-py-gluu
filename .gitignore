@@ -1,2 +1,5 @@
 .DS_Store
 .idea
+playground.py
+backup
+sherpa_logger.log

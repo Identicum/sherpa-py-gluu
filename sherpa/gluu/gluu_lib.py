@@ -10,6 +10,7 @@ import ldap.modlist
 import urllib3
 import json
 import base64
+import os
 from pyDes import *
 from sherpa.utils.clients import OIDCClient
 from sherpa.utils.clients import UMAClient
@@ -405,6 +406,20 @@ class OxTrustAPIClient:
         self.logger.debug("JSON Response: {}", response)
         return response
 
+    def get(self, endpoint):
+        """
+        GET operation with no validation
+        :param endpoint: from oxTrustAPI for instance attributes, clients, configuration/scripts
+        :return: dict. represent json. otherwise raise error value.
+        """
+        self.logger.debug("""
+        GET operation with params:
+        endpoint: {}
+        """, endpoint)
+        response = self.uma_client.get('{}'.format(endpoint))
+        self.logger.debug("JSON Response: {}", response)
+        return response
+
     def do_bulk(self, operation, endpoint, path):
         """
         Do named operation with a file/folder which has json files.
@@ -463,9 +478,373 @@ class OxTrustAPIClient:
         return json_to_process
 
 
+class GluuTransformer:
+    """Converts Gluu API objects to JSON"""
+
+    DEFAULT_MAIN_PATH = "./backup"
+
+    def __init__(self, source_json, main_path=None, logger=Logger("GluuTransformer.py")):
+        self.data = source_json
+        self.logger = logger
+        self.main_path = main_path if main_path else self.DEFAULT_MAIN_PATH
+
+    def subfolder(self):
+        self.logger.error("each subclass must define a subfolder")
+        raise NotImplementedError("each subclass must define a subfolder")
+
+    def id_attr(self):
+            self.logger.error("each subclass must define an id_attr")
+            raise NotImplementedError("each subclass must define an id_attr")
+
+    def map_single_attrs(self, attribute_map):
+        """
+        Maps single-value attributes from the source JSON based on a mapping dictionary.
+
+        :param attribute_map: Dictionary where keys are source attributes and values are target attributes.
+        """
+        transformed_data = {}
+        for old_attr, new_attr in attribute_map.items():
+            transformed_data[new_attr] = self.data.get(old_attr)
+        return transformed_data
+
+    def default_objs(self):
+        self.logger.error("each subclass must define a default_objs")
+        raise NotImplementedError("each subclass must define a default_objs")
+
+    def map_list_attrs(self, list_attributes):
+        """
+        Maps list-type attributes, ensuring they are always lists.
+
+        :param list_attributes: List of attributes that should be treated as lists.
+        """
+        transformed_data = {}
+        for attr in list_attributes:
+            transformed_data[attr] = self.data.get(attr, [])
+        return transformed_data
+
+    def transform(self):
+        """Implemented by each subclass to convert JSON"""
+        self.logger.error("transform() method must be implemented by subclass")
+        raise NotImplementedError("transform() method must be implemented by subclass")
+
+    def save_to_file(self, filename):
+        """Saves converted JSON to a file"""
+        folder_path = os.path.join(self.main_path, self.subfolder())
+        os.makedirs(folder_path, exist_ok=True)
+        file_path = os.path.join(folder_path, filename)
+
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(self.data, f, indent=4)
+
+        self.logger.debug(f"file saved: {file_path}")
+
+
+class Scope41to45Transformer(GluuTransformer):
+    """Scope transformer between Gluu 4.1 y 4.5."""
+
+    def subfolder(self):
+        return "scopes"
+
+    def id_attr(self):
+        return "id"
+
+    def default_objs(self):
+        return [
+            "address", "clientinfo", "email", "mobile_phone", "monitoring", "openid", "oxd", "permission",
+            "phone", "profile", "super_gluu_ro_session", "uma_protection", "user_name"
+            ]
+
+    def transform(self):
+        transformed_data = self.map_single_attrs({
+            "dn": "dn",
+            "inum": "inum",
+            "displayName": "displayName",
+            "id": "id",
+            "description": "description",
+            "scopeType": "scopeType",
+            "defaultScope": "defaultScope",
+            "oxAuthGroupClaims": "oxAuthGroupClaims",
+            "umaType": "umaType",
+            "umaAuthorizationPolicies": "umaAuthorizationPolicies"
+        })
+        transformed_data.update(self.map_list_attrs([ "oxAuthClaims", "dynamicScopeScripts" ]))
+        self.data = transformed_data
+        return self
+
+class Script41to45Transformer(GluuTransformer):
+    """Script transformer between Gluu 4.1 y 4.5."""
+
+    def subfolder(self):
+        return "scripts"
+
+    def id_attr(self):
+            return "name"
+
+    def default_objs(self):
+        return [
+            "application_session", "basic", "basic_lock", "cache_refresh", "cert", "client_registration",
+            "consent_gathering", "duo", "dynamic_permission", "fido2", "id_generator", "introspection_custom_params",
+            "introspection_sample", "monitoring", "org_name", "otp", "oxtrust_api_access_policy", "passport_saml",
+            "passport_social", "reset_passwords", "resource_owner_password_credentials_custom_params_example",
+            "resource_owner_password_credentials_example", "sampleClaimsGathering", "scim_access_policy",
+            "scim_event_handler", "smpp", "super_gluu", "super_gluu_ro", "super_gluu_ro_session", "thumb_sign_in",
+            "twilio_sms", "u2f", "uaf", "uma_rpt_policy", "update_user", "user_confirm_registration",
+            "user_registration", "work_phone", "yubicloud"
+            ]
+
+    def transform(self):
+        transformed_data = self.map_single_attrs({
+                    "dn": "dn",
+                    "inum": "inum",
+                    "name": "name",
+                    "description": "description",
+                    "script": "script",
+                    "scriptType": "scriptType",
+                    "programmingLanguage": "programmingLanguage",
+                    "enabled": "enabled",
+                })
+        transformed_data.update(self.map_list_attrs([ "moduleProperties", "configurationProperties" ]))
+        self.data = transformed_data
+        return self
+
+class PassportProvider41to45Transformer(GluuTransformer):
+    """PassportProvider transformer between Gluu 4.1 y 4.5."""
+
+    def subfolder(self):
+        return "passport-providers"
+
+    def id_attr(self):
+            return "id"
+
+    def default_objs(self):
+        return []
+
+    def transform(self):
+        transformed_data = self.map_single_attrs({
+                    "id": "id",
+                    "displayName": "displayName",
+                    "type": "type",
+                    "logo_img": "logo_img",
+                    "passportStrategyId": "passportStrategyId",
+                    "enabled": "enabled",
+                    "callbackUrl": "callbackUrl",
+                    "requestForEmail": "requestForEmail",
+                    "emailLinkingSafe": "emailLinkingSafe",
+                    "options": "options",
+                })
+        self.data = transformed_data
+        return self
+
+class Attribute41to45Transformer(GluuTransformer):
+    """attribute transformer between Gluu 4.1 y 4.5."""
+
+    def subfolder(self):
+        return "attributes"
+
+    def id_attr(self):
+            return "name"
+
+    def default_objs(self):
+        return [
+            "address", "birthdate", "c", "carLicense", "cn", "departmentNumber", "description", "displayName",
+            "eduPersonAffiliation", "eduPersonAssurance", "eduPersonEntitlement", "eduPersonNickName",
+            "eduPersonOrcid", "eduPersonOrgDN", "eduPersonOrgUnitDN", "eduPersonPrimaryAffiliation",
+            "eduPersonPrimaryOrgUnitDN", "eduPersonPrincipalName", "eduPersonPrincipalNamePrior",
+            "eduPersonScopedAffiliation", "eduPersonTargetedID", "eduPersonUniqueId", "emailVerified",
+            "employeeNumber", "employeeType", "facsimileTelephoneNumber", "gender", "givenName", "gluuIMAPData",
+            "gluuStatus", "homePostalAddress", "iname", "inum", "l", "locale", "mail", "manager", "memberOf",
+            "middleName", "mobile", "nickname", "o", "oxEnrollmentCode", "persistentId", "phoneNumberVerified",
+            "picture", "postalCode", "postOfficeBox", "preferredDeliveryMethod", "preferredLanguage",
+            "preferredUsername", "profile", "role", "roomNumber", "secretAnswer", "secretary", "secretQuestion",
+            "sn", "st", "street", "telephoneNumber", "title", "transientId", "uid", "updatedAt",
+            "userCertificate", "userPassword", "website", "zoneinfo"
+            ]
+
+    def transform(self):
+        transformed_data = self.map_single_attrs({
+                    "dn": "dn",
+                    "inum": "inum",
+                    "displayName": "displayName",
+                    "description": "description",
+                    "oxAuthClaimName": "oxAuthClaimName",
+                    "saml1Uri": "saml1Uri",
+                    "saml2Uri": "saml2Uri",
+                    "oxMultiValuedAttribute": "oxMultiValuedAttribute",
+                    "origin": "origin",
+                    "oxSCIMCustomAttribute": "oxSCIMCustomAttribute",
+                    "dataType": "dataType",
+                    "status": "status",
+                })
+        transformed_data.update(self.map_list_attrs([ "usageType", "viewType", "editType", "attributeValidation" ]))
+        self.data = transformed_data
+        return self
+
+class Client41to45Transformer(GluuTransformer):
+    """Client transformer between Gluu 4.1 and 4.5."""
+
+    def subfolder(self):
+        return "clients"
+
+    def id_attr(self):
+        return "displayName"
+
+    def default_objs(self):
+        return [
+            "API Requesting Party Client", "API Resource Server Client", "Gluu RO OpenID Client", "IDP client",
+            "oxTrust Admin GUI", "oxTrust API", "Passport IDP-initiated flow Client", "Passport Requesting Party Client",
+            "Passport Resource Server Client", "SCIM Requesting Party Client", "SCIM Resource Server Client"
+            ]
+
+    def transform(self):
+        """Transforms the client data using the mapping functions."""
+        transformed_data = self.map_single_attrs({
+            "dn": "dn",
+            "accessTokenAsJwt": "accessTokenAsJwt",
+            "accessTokenLifetime": "accessTokenLifetime",
+            "accessTokenSigningAlg": "accessTokenSigningAlg",
+            "description": "description",
+            "displayName": "displayName",
+            "encodedClientSecret": "encodedClientSecret",
+            "idTokenSignedResponseAlg": "idTokenSignedResponseAlg",
+            "initiateLoginUri": "initiateLoginUri",
+            "inum": "inum",
+            "jwks": "jwks",
+            "logoUri": "logoUri",
+            "oxAuthAppType": "oxAuthAppType",
+            "oxAuthPersistClientAuthorizations": "oxAuthPersistClientAuthorizations",
+            "oxAuthTrustedClient": "oxAuthTrustedClient",
+            "oxIncludeClaimsInIdToken": "oxIncludeClaimsInIdToken",
+            "oxRefreshTokenLifetime": "oxRefreshTokenLifetime",
+            "requireAuthTime": "requireAuthTime",
+            "subjectType": "subjectType",
+            "tokenEndpointAuthMethod": "tokenEndpointAuthMethod"
+        })
+
+        transformed_data.update(self.map_list_attrs([
+            "defaultAcrValues",
+            "grantTypes",
+            "oxAuthPostLogoutRedirectURIs",
+            "oxAuthRedirectURIs",
+            "oxAuthScopes",
+            "responseTypes"
+        ]))
+
+        self.data = transformed_data
+        return self
+
+class OxAuthSettings41to45(GluuTransformer):
+    """oxauthsettings transformer between Gluu 4.1 y 4.5."""
+
+    def subfolder(self):
+        return "oxauth-settings"
+
+    def id_attr(self):
+            return "oxauth-settings"
+
+    def default_objs(self):
+        return []
+
+    def transform(self):
+        transformed_data = self.data
+        self.data = transformed_data
+        return self
+
+class OxTrustSettings41to45(GluuTransformer):
+    """oxtrustsettings transformer between Gluu 4.1 y 4.5."""
+
+    def subfolder(self):
+        return "oxtrust-settings"
+
+    def id_attr(self):
+        return "oxtrust-settings"
+
+    def default_objs(self):
+        return []
+
+    def transform(self):
+        transformed_data = self.data
+        self.data = transformed_data
+        return self
+
+class OxSettings41to45(GluuTransformer):
+    """oxsettings transformer between Gluu 4.1 y 4.5."""
+
+    def subfolder(self):
+        return "ox-settings"
+
+    def id_attr(self):
+        return "ox-settings"
+
+    def default_objs(self):
+        return []
+
+    def transform(self):
+        transformed_data = self.data
+        self.data = transformed_data
+        return self
+
+class GluuBackup:
+    """Handles backing up Gluu data, transforming it, and saving it to files."""
+
+    def __init__(self, hostname, credentials, logger=Logger("GluuTransformer.py")):
+        """
+        Initializes the Gluu API client.
+        :param hostname: Base URL of the Gluu server.
+        :param credentials: Authentication token.
+        """
+        self.logger = logger
+        self.api_client = OxTrustAPIClient(f"https://{hostname}/identity/restv1/api/v1", credentials)
+
+    def backup(self, entity_type, endpoint, output_path=None):
+        """
+        Fetches data from an API endpoint, transforms it, and saves it to files.
+        :param entity_type: The type of entity to back up (scope, attribute, script).
+        :param endpoint: The API endpoint (e.g., "scopes").
+        :param output_path: The directory where files will be saved (optional).
+        """
+        self.logger.debug(f"Fetching data from endpoint: {endpoint}...")
+        entities = self.api_client.get(endpoint)  # API request
+
+        if not entities:
+            self.logger.debug(f"No data found at {endpoint}.")
+            return
+
+        if isinstance(entities, dict):
+            entities = [entities]
+
+        for entity in entities:
+            transformer = get_transformer(entity_type, entity, output_path)
+            file_attr_name = transformer.id_attr()
+            if file_attr_name in ["oxauth-settings", "oxtrust-settings", "ox-settings"]:
+                file_name = f"{file_attr_name}.json"
+                transformer.transform().save_to_file(file_name)
+            else:
+                entity_id = entity.get(file_attr_name)
+                if entity_id not in transformer.default_objs():
+                    file_name = f"{entity_id}.json"
+                    transformer.transform().save_to_file(file_name)
+
+        self.logger.debug(f"{len(entities)} items backed up to {output_path or 'backup'}.")
+
+
 ########################################################################################################################
 ########## FUNCTIONS ###################################################################################################
 ########################################################################################################################
+
+def get_transformer(type_name, json_data, main_path=None):
+    """Returns transform"""
+    transformers = {
+        "scope41to45": Scope41to45Transformer,
+        "script41to45": Script41to45Transformer,
+        "attribute41to45": Attribute41to45Transformer,
+        "passportprovider41to45": PassportProvider41to45Transformer,
+        "client41to45": Client41to45Transformer,
+        "oxAuthSettings41to45": OxAuthSettings41to45,
+        "oxTrustSettings41to45": OxTrustSettings41to45,
+        "oxSettings41to45": OxSettings41to45
+    }
+    transformer_class = transformers.get(type_name, GluuTransformer)
+    return transformer_class(json_data, main_path)
 
 def test_oxtrust_api(idp_url, client_id, client_secret, logger):
     logger.info("Testing oxTrust API configuration")
