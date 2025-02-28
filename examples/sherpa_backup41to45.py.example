@@ -1,0 +1,32 @@
+
+import sys
+from sherpa.gluu.gluu_lib import GluuBackup
+
+def main(arguments):
+    hostname = "<<CHANGE_ME>>"
+    credentials = "<<CHANGE_ME>>"
+
+    backup = GluuBackup(hostname, credentials)
+
+    # Perform backups for different entity types
+    backup.backup("scope41to45", "scopes")
+    backup.backup("script41to45", "configuration/scripts")
+    backup.backup("attribute41to45", "attributes")
+    backup.backup("passportprovider41to45", "passport/providers")
+    backup.backup("client41to45", "clients")
+    backup.backup("oxAuthSettings41to45", "configuration/oxauth/settings")
+    backup.backup("oxTrustSettings41to45", "configuration/oxtrust/settings")
+    backup.backup("oxSettings41to45", "configuration/settings")
+
+    # SAMLTr import
+    # Get LDIF from LDAP:
+    #    /opt/opendj/bin/ldapsearch -X -Z -D "cn=Directory Manager" -w <<PASSWORD>> -h localhost -p 1636  -b "ou=trustRelationships,o=gluu" "(objectClass=gluuSAMLconfig)" > trust_relationships.ldif
+    # Get metadata files from SP (exclude credentials folder and idp-metadata.xml from backup):
+    #    cp /opt/shibboleth-idp/metadata/*
+
+    # IDP-Initiated Flows Config
+    #    /opt/opendj/bin/ldapsearch -X -Z -D "cn=Directory Manager" -w <<PASSWORD>> -h localhost -p 1636  -b "ou=oxpassport,ou=configuration,o=gluu" "(objectClass=oxPassportConfiguration)" > oxpassport.ldif
+    # copy/paste the idpInitiated obj inside the oxpassport obj
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))

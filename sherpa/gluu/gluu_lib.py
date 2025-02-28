@@ -691,7 +691,7 @@ class Client41to45Transformer(GluuTransformer):
     def default_objs(self):
         return [
             "API Requesting Party Client", "API Resource Server Client", "Gluu RO OpenID Client", "IDP client",
-            "oxTrust Admin GUI", "oxTrust API", "Passport IDP-initiated flow Client", "Passport Requesting Party Client",
+            "oxTrust Admin GUI", "Passport IDP-initiated flow Client", "Passport Requesting Party Client",
             "Passport Resource Server Client", "SCIM Requesting Party Client", "SCIM Resource Server Client"
             ]
 
@@ -717,7 +717,8 @@ class Client41to45Transformer(GluuTransformer):
             "oxRefreshTokenLifetime": "oxRefreshTokenLifetime",
             "requireAuthTime": "requireAuthTime",
             "subjectType": "subjectType",
-            "tokenEndpointAuthMethod": "tokenEndpointAuthMethod"
+            "tokenEndpointAuthMethod": "tokenEndpointAuthMethod",
+            "attributes": "attributes"
         })
 
         transformed_data.update(self.map_list_attrs([
@@ -746,7 +747,20 @@ class OxAuthSettings41to45(GluuTransformer):
 
     def transform(self):
         transformed_data = self.data
-        self.data = transformed_data
+
+        keys_to_remove = oxauth_configuration_keys = [
+           "issuer", "baseEndpoint", "authorizationEndpoint", "tokenEndpoint", "tokenRevocationEndpoint",
+           "userInfoEndpoint", "clientInfoEndpoint", "checkSessionIFrame", "endSessionEndpoint", "jwksUri",
+           "registrationEndpoint", "openIdDiscoveryEndpoint", "openIdConfigurationEndpoint", "idGenerationEndpoint",
+           "introspectionEndpoint", "umaConfigurationEndpoint", "oxElevenGenerateKeyEndpoint", "oxElevenSignEndpoint",
+           "oxElevenVerifySignatureEndpoint", "oxElevenDeleteKeyEndpoint", "openidSubAttribute", "oxId",
+           "pairwiseIdType", "pairwiseCalculationKey", "pairwiseCalculationSalt",
+           "shareSubjectIdBetweenClientsWithSameSectorId", "webKeysStorage", "dnName", "keyStoreFile",
+           "keyStoreSecret", "fido2Configuration"
+       ]
+
+
+        self.data = {key: value for key, value in transformed_data.items() if key not in keys_to_remove}
         return self
 
 class OxTrustSettings41to45(GluuTransformer):
