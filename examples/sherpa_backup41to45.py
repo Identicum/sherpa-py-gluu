@@ -10,7 +10,7 @@ def main(arguments):
 
     # Perform backups for different entity types
     backup.backup("scope41to45", "scopes")
-    backup.backup("script41to45", "configuration/scripts", include_default=["passport_social", "basic"])
+    backup.backup("script41to45", "configuration/scripts", include_default=["basic", "passport_social", "passport_saml", "introspection_custom_params"])
     backup.backup("attribute41to45", "attributes")
     backup.backup("passportprovider41to45", "passport/providers")
     backup.backup("client41to45", "clients")
