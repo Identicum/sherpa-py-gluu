@@ -809,7 +809,7 @@ class GluuBackup:
         self.logger = logger
         self.api_client = OxTrustAPIClient(f"https://{hostname}/identity/restv1/api/v1", credentials)
 
-    def backup(self, entity_type, endpoint, output_path=None):
+    def backup(self, entity_type, endpoint, include_default=None, output_path=None):
         """
         Fetches data from an API endpoint, transforms it, and saves it to files.
         :param entity_type: The type of entity to back up (scope, attribute, script).
@@ -834,7 +834,7 @@ class GluuBackup:
                 transformer.transform().save_to_file(file_name)
             else:
                 entity_id = entity.get(file_attr_name)
-                if entity_id not in transformer.default_objs():
+                if entity_id not in (set(transformer.default_objs()) - set(include_default)):
                     file_name = f"{entity_id}.json"
                     transformer.transform().save_to_file(file_name)
 

@@ -3,14 +3,14 @@ import sys
 from sherpa.gluu.gluu_lib import GluuBackup
 
 def main(arguments):
-    hostname = "<<CHANGE_ME>>"
-    credentials = "<<CHANGE_ME>>"
+    hostname = ""
+    credentials = ""
 
     backup = GluuBackup(hostname, credentials)
 
     # Perform backups for different entity types
     backup.backup("scope41to45", "scopes")
-    backup.backup("script41to45", "configuration/scripts")
+    backup.backup("script41to45", "configuration/scripts", include_default=["passport_social", "basic"])
     backup.backup("attribute41to45", "attributes")
     backup.backup("passportprovider41to45", "passport/providers")
     backup.backup("client41to45", "clients")
