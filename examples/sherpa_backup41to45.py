@@ -63,5 +63,15 @@ def main():
     backup.backup("oxTrustSettings41to45", "configuration/oxtrust/settings")
     backup.backup("oxSettings41to45", "configuration/settings")
 
+    # SAMLTr import
+    # Get LDIF from LDAP:
+    #    /opt/opendj/bin/ldapsearch -X -Z -D "cn=Directory Manager" -w <<PASSWORD>> -h localhost -p 1636  -b "ou=trustRelationships,o=gluu" "(objectClass=gluuSAMLconfig)" > trust_relationships.ldif
+    # Get metadata files from SP (exclude credentials folder and idp-metadata.xml from backup):
+    #    cp /opt/shibboleth-idp/metadata/*
+
+    # IDP-Initiated Flows Config
+    #    /opt/opendj/bin/ldapsearch -X -Z -D "cn=Directory Manager" -w <<PASSWORD>> -h localhost -p 1636  -b "ou=oxpassport,ou=configuration,o=gluu" "(objectClass=oxPassportConfiguration)" > oxpassport.ldif
+    # copy/paste the idpInitiated obj inside the oxpassport obj
+
 if __name__ == '__main__':
     main()
