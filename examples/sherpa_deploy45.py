@@ -46,10 +46,10 @@ def main():
     # execute_oxtrust_api_call_upsert(hostname, credentials, "configuration/scripts", f"{objects_folder}/scripts", logger)
     #
     # # scopes
-    execute_oxtrust_api_call_upsert(hostname, credentials, "scopes", f"{objects_folder}/scopes", logger)
+    # execute_oxtrust_api_call_upsert(hostname, credentials, "scopes", f"{objects_folder}/scopes", logger)
     #
     # # attributes
-    # execute_oxtrust_api_call_upsert(hostname, credentials, "attributes", f"{objects_folder}/attributes", logger)
+    execute_oxtrust_api_call_upsert(hostname, credentials, "attributes", f"{objects_folder}/attributes", logger)
     #
     # # clients
     # execute_oxtrust_api_call_upsert(hostname, credentials, "clients", f"{objects_folder}/clients", logger)

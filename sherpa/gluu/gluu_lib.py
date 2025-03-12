@@ -663,6 +663,7 @@ class Attribute41to45Transformer(GluuTransformer):
         transformed_data = self.map_single_attrs({
                     "dn": "dn",
                     "inum": "inum",
+                    "name": "name",
                     "displayName": "displayName",
                     "description": "description",
                     "oxAuthClaimName": "oxAuthClaimName",
