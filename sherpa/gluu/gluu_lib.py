@@ -673,7 +673,10 @@ class Attribute41to45Transformer(GluuTransformer):
                     "origin": "origin",
                     "oxSCIMCustomAttribute": "oxSCIMCustomAttribute",
                     "dataType": "dataType",
-                    "status": "status",
+                    "selected": "selected",
+                    "custom": "custom",
+                    "requred": "requred",
+                    "status": "status"
                 })
         transformed_data.update(self.map_list_attrs([ "usageType", "viewType", "editType", "attributeValidation" ]))
         self.data = transformed_data

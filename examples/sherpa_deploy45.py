@@ -30,32 +30,35 @@ def main():
     # Encode credentials in Base64
     credentials = encode_credentials(local_properties.get("oxtrustapi_client_id"), local_properties.get("oxtrustapi_client_secret"))
 
-    # objects-folder name
-    objects_folder= local_properties.get("idp_deploy_objects_folder")
+    # # objects-folder name
+    objects_folder = local_properties.get("idp_deploy_objects_folder")
 
-    # # ox-settings
-    # execute_oxtrust_api_call_update(hostname, credentials, "configuration/settings", f"{objects_folder}/ox-settings/ox-settings.json", logger)
-    #
-    # # oxauth-settings
-    # execute_oxtrust_api_call_update(hostname, credentials, "configuration/oxauth/settings", f"{objects_folder}/oxauth-settings/oxauth-settings.json", logger)
-    #
-    # # oxtrust-settings
-    # execute_oxtrust_api_call_update(hostname, credentials, "configuration/oxtrust/settings", f"{objects_folder}/oxtrust-settings/oxtrust-settings.json", logger)
+    # ox-settings
+    execute_oxtrust_api_call_update(hostname, credentials, "configuration/settings", f"{objects_folder}/ox-settings/ox-settings.json", logger)
 
-    # # scripts
-    # execute_oxtrust_api_call_upsert(hostname, credentials, "configuration/scripts", f"{objects_folder}/scripts", logger)
-    #
-    # # scopes
-    # execute_oxtrust_api_call_upsert(hostname, credentials, "scopes", f"{objects_folder}/scopes", logger)
-    #
-    # # attributes
+    # oxauth-settings
+    execute_oxtrust_api_call_update(hostname, credentials, "configuration/oxauth/settings", f"{objects_folder}/oxauth-settings/oxauth-settings.json", logger)
+
+    # oxtrust-settings
+    execute_oxtrust_api_call_update(hostname, credentials, "configuration/oxtrust/settings", f"{objects_folder}/oxtrust-settings/oxtrust-settings.json", logger)
+
+    # scripts
+    execute_oxtrust_api_call_upsert(hostname, credentials, "configuration/scripts", f"{objects_folder}/scripts", logger)
+
+    # scopes
+    execute_oxtrust_api_call_upsert(hostname, credentials, "scopes", f"{objects_folder}/scopes", logger)
+
+    # attributes
     execute_oxtrust_api_call_upsert(hostname, credentials, "attributes", f"{objects_folder}/attributes", logger)
+
+    # clients
+    execute_oxtrust_api_call_upsert(hostname, credentials, "clients", f"{objects_folder}/clients", logger)
     #
-    # # clients
-    # execute_oxtrust_api_call_upsert(hostname, credentials, "clients", f"{objects_folder}/clients", logger)
-    #
-    # # passport-providers
-    # execute_oxtrust_api_call_upsert(hostname, credentials, "passport/providers", f"{objects_folder}/passport-providers", logger)
+    # passport-providers
+    # add scopes in API Requesting Party Client
+    # https://gluu.org/auth/oxtrust.passportprovider.write
+    # https://gluu.org/auth/oxtrust.passportprovider.read
+    execute_oxtrust_api_call_upsert(hostname, credentials, "passport/providers", f"{objects_folder}/passport-providers", logger)
 
     # SAMLTr
     # IDP-Initiated Flows
