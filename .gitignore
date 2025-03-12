@@ -2,7 +2,8 @@
 .idea
 playground.py
 backup
-sherpa_logger.log
+*.log
 samltr41
 build
 sherpa_py_gluu.egg-info
+local.properties

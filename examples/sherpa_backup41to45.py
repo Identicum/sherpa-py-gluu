@@ -1,23 +1,8 @@
-"""
-Gluu Backup Script (from 41 to 45)
-
-This script performs backups of various Gluu Server configurations.
-
-How it works:
-- The user provides `hostname`, `client_id`, and `client_secret` as command-line arguments.
-- The script encodes `client_id:client_secret` in Base64 for authentication.
-- Optionally, the user can pass `--include-default` as a JSON dictionary to override include settings.
-
-Usage:
-    python sherpa_backup41to45.py --hostname <GLUU_HOST> --client-id <CLIENT_ID> --client-secret <CLIENT_SECRET> [--include-default '{"scope": ["custom_scope1"], "script": ["custom_script1"]}']
-
-Example:
-    python sherpa_backup41to45.py --hostname my-gluu-server.com --client-id myclientid --client-secret myclientsecret --include-default '{"script": ["basic", "extra_script"]}'
-"""
-
 import sys
 import base64
-import argparse
+import os
+from sherpa.utils.basics import Properties
+from sherpa.utils.basics import Logger
 import json
 from sherpa.gluu.gluu_lib import GluuBackup
 
@@ -27,36 +12,33 @@ def encode_credentials(client_id, client_secret):
     return base64.b64encode(creds).decode("utf-8")
 
 def main():
-    user_include_defaults = {}
-    parser = argparse.ArgumentParser(description="Backup Gluu data with optional include settings.")
+    local_properties = Properties("./local.properties", "./default.properties")
+    logger = Logger(os.path.basename(__file__), local_properties.get("idp_deployment_log_level"), local_properties.get("idp_deployment_log_file"))
 
-    # Command line arguments
-    parser.add_argument("--hostname", required=True, help="Hostname of the Gluu server")
-    parser.add_argument("--client-id", required=True, help="Client ID for authentication")
-    parser.add_argument("--client-secret", required=True, help="Client Secret for authentication")
-    parser.add_argument("--include-default", type=str, help="JSON dictionary of include_default values")
-
-    args = parser.parse_args()
+    # hostname
+    hostname = local_properties.get("idp_hostname")
 
     # Encode credentials in Base64
-    credentials = encode_credentials(args.client_id, args.client_secret)
+    credentials = encode_credentials(local_properties.get("oxtrustapi_client_id"), local_properties.get("oxtrustapi_client_secret"))
+
+    backup_folder = local_properties.get("idp_backup_objects_folder")
 
     # Parse optional include-default argument
     try:
-        user_include_defaults = json.loads(args.include_default) if args.include_default else {}
+        user_include_defaults = json.loads(local_properties.get("idp_import_include_default"))
     except json.JSONDecodeError:
-        print("Error: Invalid JSON format in --include-default")
+        logger.error("Error: Invalid JSON format in --include-default")
         sys.exit(1)
 
     # Initialize backup with hostname and encoded credentials
-    backup = GluuBackup(args.hostname, credentials)
+    backup = GluuBackup(hostname, credentials, logger, backup_folder)
 
     # Perform backups with optional include_default settings
-    backup.backup("scope41to45", "scopes", include_default=user_include_defaults.get("scope", []))
-    backup.backup("script41to45", "configuration/scripts", include_default=user_include_defaults.get("script", []))
-    backup.backup("attribute41to45", "attributes", include_default=user_include_defaults.get("attribute", []))
-    backup.backup("passportprovider41to45", "passport/providers", include_default=user_include_defaults.get("passportprovider", []))
-    backup.backup("client41to45", "clients", include_default=user_include_defaults.get("client", []))
+    backup.backup("scope41to45", "scopes", user_include_defaults.get("scope", []))
+    backup.backup("script41to45", "configuration/scripts", user_include_defaults.get("script", []))
+    backup.backup("attribute41to45", "attributes", user_include_defaults.get("attribute", []))
+    backup.backup("passportprovider41to45", "passport/providers", user_include_defaults.get("passportprovider", []))
+    backup.backup("client41to45", "clients", user_include_defaults.get("client", []))
 
     # These backups do NOT have include_default
     backup.backup("oxAuthSettings41to45", "configuration/oxauth/settings")
@@ -68,7 +50,7 @@ def main():
     #    /opt/opendj/bin/ldapsearch -X -Z -D "cn=Directory Manager" -w <<PASSWORD>> -h localhost -p 1636  -b "ou=trustRelationships,o=gluu" "(objectClass=gluuSAMLconfig)" > trust_relationships.ldif
     # Get metadata files from SP (exclude credentials folder and idp-metadata.xml from backup):
     #    cp /opt/shibboleth-idp/metadata/*
-
+    #
     # IDP-Initiated Flows Config
     #    /opt/opendj/bin/ldapsearch -X -Z -D "cn=Directory Manager" -w <<PASSWORD>> -h localhost -p 1636  -b "ou=oxpassport,ou=configuration,o=gluu" "(objectClass=oxPassportConfiguration)" > oxpassport.ldif
     # copy/paste the idpInitiated obj inside the oxpassport obj

@@ -564,7 +564,6 @@ class Scope41to45Transformer(GluuTransformer):
             "scopeType": "scopeType",
             "defaultScope": "defaultScope",
             "oxAuthGroupClaims": "oxAuthGroupClaims",
-            "umaType": "umaType",
             "umaAuthorizationPolicies": "umaAuthorizationPolicies"
         })
         transformed_data.update(self.map_list_attrs([ "oxAuthClaims", "dynamicScopeScripts" ]))
@@ -800,16 +799,17 @@ class OxSettings41to45(GluuTransformer):
 class GluuBackup:
     """Handles backing up Gluu data, transforming it, and saving it to files."""
 
-    def __init__(self, hostname, credentials, logger=Logger("GluuTransformer.py")):
+    def __init__(self, hostname, credentials, logger=Logger("GluuTransformer.py"), output_path=None):
         """
         Initializes the Gluu API client.
         :param hostname: Base URL of the Gluu server.
         :param credentials: Authentication token.
         """
         self.logger = logger
-        self.api_client = OxTrustAPIClient(f"https://{hostname}/identity/restv1/api/v1", credentials)
+        self.output_path = output_path
+        self.api_client = OxTrustAPIClient(f"https://{hostname}/identity/restv1/api/v1", credentials, logger=logger)
 
-    def backup(self, entity_type, endpoint, include_default=[], output_path=None):
+    def backup(self, entity_type, endpoint, include_default=[]):
         """
         Fetches data from an API endpoint, transforms it, and saves it to files.
         :param entity_type: The type of entity to back up (scope, attribute, script).
@@ -827,7 +827,7 @@ class GluuBackup:
             entities = [entities]
 
         for entity in entities:
-            transformer = get_transformer(entity_type, entity, output_path)
+            transformer = get_transformer(entity_type, entity, self.output_path)
             file_attr_name = transformer.id_attr()
             if file_attr_name in ["oxauth-settings", "oxtrust-settings", "ox-settings"]:
                 file_name = f"{file_attr_name}.json"
@@ -838,7 +838,7 @@ class GluuBackup:
                     file_name = f"{entity_id}.json"
                     transformer.transform().save_to_file(file_name)
 
-        self.logger.debug(f"{len(entities)} items backed up to {output_path or 'backup'}.")
+        self.logger.debug(f"{len(entities)} items backed up to {self.output_path or 'backup'}.")
 
 
 ########################################################################################################################
