@@ -24,13 +24,13 @@ def main():
     local_properties = Properties("./local.properties", "./default.properties")
     logger = Logger(os.path.basename(__file__), local_properties.get("idp_deployment_log_level"), local_properties.get("idp_deployment_log_file"))
 
-    # hostname
+    #hostname
     hostname = local_properties.get("idp_hostname")
 
     # Encode credentials in Base64
     credentials = encode_credentials(local_properties.get("oxtrustapi_client_id"), local_properties.get("oxtrustapi_client_secret"))
 
-    # # objects-folder name
+    # objects-folder name
     objects_folder = local_properties.get("idp_deploy_objects_folder")
 
     # ox-settings
@@ -53,7 +53,7 @@ def main():
 
     # clients
     execute_oxtrust_api_call_upsert(hostname, credentials, "clients", f"{objects_folder}/clients", logger)
-    #
+
     # passport-providers
     # add scopes in API Requesting Party Client
     # https://gluu.org/auth/oxtrust.passportprovider.write

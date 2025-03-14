@@ -35,10 +35,12 @@ def main():
 
     # Perform backups with optional include_default settings
     backup.backup("scope41to45", "scopes", user_include_defaults.get("scope", []))
-    backup.backup("script41to45", "configuration/scripts", user_include_defaults.get("script", []))
     backup.backup("attribute41to45", "attributes", user_include_defaults.get("attribute", []))
     backup.backup("passportprovider41to45", "passport/providers", user_include_defaults.get("passportprovider", []))
     backup.backup("client41to45", "clients", user_include_defaults.get("client", []))
+
+    # EncryptionService has changed its package, in 45 is org.gluu.oxauth.service.common, replace on script import sections
+    backup.backup("script41to45", "configuration/scripts", user_include_defaults.get("script", []))
 
     # These backups do NOT have include_default
     backup.backup("oxAuthSettings41to45", "configuration/oxauth/settings")
