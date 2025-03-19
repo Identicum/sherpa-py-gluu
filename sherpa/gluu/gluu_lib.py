@@ -919,16 +919,17 @@ def encode_with_gluu_salt(data, salt):
     b64_data = base64.b64encode(en_data).decode()
     return b64_data
 
+def decode_with_gluu_salt(data, salt):
+    cipher = triple_des(salt)
+    decrypted = cipher.decrypt(base64.b64decode(data), padmode=PAD_PKCS5)
+    return decrypted
 
 def gluu_decode(salt_file, data):
     f = open(salt_file)
     salt_property = f.read()
     f.close()
     key = salt_property.split("=")[1].strip()
-    engine = triple_des(key, ECB, pad=None, padmode=PAD_PKCS5)
-    cipher = triple_des(key)
-    decrypted = cipher.decrypt(base64.b64decode(data), padmode=PAD_PKCS5)
-    return decrypted
+    return decode_with_gluu_salt(data, key)
 
 
 def gluu_encode(salt_file, data):

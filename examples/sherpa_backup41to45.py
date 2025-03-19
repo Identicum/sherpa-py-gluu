@@ -16,12 +16,12 @@ def main():
     logger = Logger(os.path.basename(__file__), local_properties.get("idp_deployment_log_level"), local_properties.get("idp_deployment_log_file"))
 
     # hostname
-    hostname = local_properties.get("idp_hostname")
+    hostname = local_properties.get("backup_idp_hostname")
 
     # Encode credentials in Base64
-    credentials = encode_credentials(local_properties.get("oxtrustapi_client_id"), local_properties.get("oxtrustapi_client_secret"))
+    credentials = encode_credentials(local_properties.get("backup_oxtrustapi_client_id"), local_properties.get("backup_oxtrustapi_client_secret"))
 
-    backup_folder = local_properties.get("idp_backup_objects_folder")
+    backup_folder = local_properties.get("backup_idp_objects_folder")
 
     # Parse optional include-default argument
     try:
