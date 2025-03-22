@@ -348,14 +348,14 @@ class OxTrustAPIClient:
         if endpoint == 'passport/providers':
             key = 'id'
             inum = json_obj[key]
-        elif endpoint == 'saml/tr':
+        elif 'saml/tr' in endpoint:
             inum = "fake_value"
         else:
             inum = json_obj[key]
         if inum is None:
             return self.create(endpoint, json_obj)
         try:
-            if endpoint == 'saml/tr':
+            if 'saml/tr' in endpoint:
                 self.logger.debug("SAML Upsert requested, getting values from displayName attr")
                 tr_list = self.uma_client.execute("GET", "saml/tr/list")
                 self.logger.debug("looking for displayName: {}", json_obj['displayName'])
@@ -368,8 +368,22 @@ class OxTrustAPIClient:
                     return self.create("saml/tr/create", json_obj)
                 elif tr_list_size == 1:
                     self.logger.debug("update a existing tr")
-                    json_obj['inum'] = tr_list[0].get('inum')
-                    return self.update("saml/tr/update", json_obj)
+                    inum = tr_list[0].get('inum')
+                    if "saml/tr/update-metadata" in endpoint:
+                        file_name = json_obj.get("spMetaDataURL")
+                        self.logger.debug("checking saml/tr/update-metadata with {}", file_name)
+                        if file_name.startswith("REPLACEME_"):
+                            file_path = file_name.split("REPLACEME_")[1]
+                            self.logger.debug("file_path to extract xml is {}", file_path)
+                            with open(file_path, "r", encoding="utf-8") as f:
+                                xml_obj = f.read()
+                                return self.post_samltr_raw_metadata(inum, xml_obj)
+                        else:
+                            self.logger.debug("No action to perform with {}", file_name)
+                    else:
+                        json_obj['inum'] = inum
+                        json_obj['dn'] = "inum={},ou=trustRelationships,o=gluu".format(inum)
+                        return self.update("saml/tr/update", json_obj)
                 else:
                     validators.raise_and_log(self.logger, ValueError, "duplicated displayName obj for Trust relationship, stopped UPSERT operation", endpoint)
             else:
@@ -383,6 +397,11 @@ class OxTrustAPIClient:
         except IOError:
             self.logger.debug("Object does not exist, lets create it...")
             return self.create(endpoint, json_obj)
+
+    def post_samltr_raw_metadata(self, inum, xml_obj):
+        response = self.uma_client.post_samltr_raw_metadata(inum, xml_obj)
+        self.logger.debug("set_metadata endpoint response: {}", response)
+        return response
 
     def get_by_inum(self, endpoint, json_obj, key='inum'):
         """

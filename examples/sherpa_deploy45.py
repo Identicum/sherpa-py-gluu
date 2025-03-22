@@ -2,6 +2,7 @@ import sys
 import os
 import base64
 import json
+from ldif import LDIFParser
 from sherpa.utils.basics import Properties
 from sherpa.utils.basics import Logger
 from sherpa.utils import os_cmd
@@ -49,6 +50,55 @@ def saltify_client_secrets(old_salt, new_salt, clients_folder, logger):
         except Exception as e:
             logger.error(f"Error processing {client_file}: {e}")
 
+def get_attr(attributes, key, default=None, multi=False):
+    if multi:
+        return attributes.get(key, [])
+    return attributes.get(key, [default])[0]
+
+def generate_saml_jsons(samltr_folder, logger):
+    samltr_ldif = f"{samltr_folder}/trust_relationships.ldif"
+    work_folder = "./work/samltr"
+    base_dn = "ou=trustRelationships,o=gluu"
+    logger.debug("Deleting old work files.")
+    os_cmd.execute_in_bash(f"rm -f {work_folder}/*.json", logger)
+    os_cmd.execute_in_bash(f"mkdir -p {work_folder}", logger)
+    logger.debug(f"Converting LDIF to JSON for Gluu 4.5 from {samltr_ldif}")
+
+    with open(samltr_ldif, "rb") as f:
+        parser = LDIFParser(f)
+        for dn, attributes in parser.parse():
+            if dn.endswith(base_dn) and dn != base_dn:
+                logger.debug(f"Converting {dn} to JSON")
+                inum = attributes["inum"][0]
+                source_type =  get_attr(attributes, "gluuSAMLspMetaDataSourceType", "FILE").upper()
+
+                tr_json = {
+                    "displayName": get_attr(attributes, "displayName"),
+                    "description": get_attr(attributes, "description"),
+                    "entityType": "SingleSP",
+                    "spMetaDataSourceType": source_type,
+                    "spLogoutURL": get_attr(attributes,"oxAuthPostLogoutRedirectURI"),
+                    "gluuSpecificRelyingPartyConfig": get_attr(attributes, "gluuSpecificRelyingPartyConfig"),
+                    "releasedAttributes": get_attr(attributes, "gluuReleasedAttribute", multi=True),
+                    "gluuIsFederation": get_attr(attributes, "gluuIsFederation"),
+                    "gluuEntityId": get_attr(attributes, "gluuEntityId", multi=True),
+                    "maxRefreshDelay": get_attr(attributes, "gluuSAMLmaxRefreshDelay"),
+                    "status": get_attr(attributes, "gluuStatus", "ACTIVE").upper(),
+                    "validationStatus": get_attr(attributes, "gluuValidationStatus", "SUCCESS").upper(),
+                }
+
+                if source_type == "URI":
+                    tr_json["spMetaDataURL"] = get_attr(attributes,"gluuSAMLspMetaDataURL")
+                elif source_type == "FILE":
+                    tr_json["spMetaDataSourceType"] = "URI"
+                    tr_json["spMetaDataURL"] = f"REPLACEME_{samltr_folder}/metadata-files/{inum}-sp-metadata.xml"
+                else:
+                    raise Exception("source_type_not_supported")
+
+                json_path = f"{work_folder}/{inum}.json"
+                with open(json_path, "w", encoding="utf-8") as f:
+                    json.dump(tr_json, f, indent=4)
+                logger.debug(f"Generated JSON: {json_path}")
 
 def main():
 
@@ -97,7 +147,9 @@ def main():
     execute_oxtrust_api_call_upsert(hostname, credentials, "passport/providers", f"{objects_folder}/passport-providers", logger)
 
     # SAMLTr
-    # TODO
+    generate_saml_jsons(f"{objects_folder}/samltr", logger)
+    execute_oxtrust_api_call_upsert(hostname, credentials, "saml/tr", "./work/samltr", logger)
+    execute_oxtrust_api_call_upsert(hostname, credentials, "saml/tr/update-metadata", "./work/samltr", logger)
 
     # IDP-Initiated Flows - Manual step
     # copy/paste the idpInitiated obj inside the oxpassport obj
