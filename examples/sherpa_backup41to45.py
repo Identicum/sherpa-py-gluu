@@ -25,7 +25,7 @@ def main():
 
     # Parse optional include-default argument
     try:
-        user_include_defaults = json.loads(local_properties.get("idp_import_include_default"))
+        user_include_defaults = json.loads(local_properties.get("backup_idp_import_include_default"))
     except json.JSONDecodeError:
         logger.error("Error: Invalid JSON format in --include-default")
         sys.exit(1)
