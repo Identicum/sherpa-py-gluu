@@ -76,6 +76,8 @@ def generate_saml_jsons(samltr_folder, logger):
                 source_type =  get_attr(attributes, "gluuSAMLspMetaDataSourceType", "FILE").upper()
 
                 tr_json = {
+                    "dn": f"inum={inum},ou=trustRelationships,o=gluu",
+                    "inum": inum,
                     "displayName": get_attr(attributes, "displayName"),
                     "description": get_attr(attributes, "description"),
                     "entityType": "SingleSP",
@@ -93,8 +95,10 @@ def generate_saml_jsons(samltr_folder, logger):
                 if source_type == "URI":
                     tr_json["spMetaDataURL"] = get_attr(attributes,"gluuSAMLspMetaDataURL")
                 elif source_type == "FILE":
-                    tr_json["spMetaDataSourceType"] = "URI"
-                    tr_json["spMetaDataURL"] = f"REPLACEME_{samltr_folder}/metadata-files/{inum}-sp-metadata.xml"
+                    metadata_file_name = f"{inum}-sp-metadata.xml"
+                    tr_json["spMetaDataFN"] = metadata_file_name
+                    with open(f"{samltr_folder}/metadata-files/{metadata_file_name}", 'r') as metadata_file:
+                        tr_json["metadataStr"] = metadata_file.read()
                 else:
                     raise Exception("source_type_not_supported")
 
@@ -291,10 +295,9 @@ def main():
     # https://gluu.org/auth/oxtrust.passportprovider.read
     execute_oxtrust_api_call_upsert(hostname, credentials, "passport/providers", f"{objects_folder}/passport-providers", logger)
 
-    # # SAMLTr
-    # generate_saml_jsons(f"{objects_folder}/samltr", logger)
-    # execute_oxtrust_api_call_upsert(hostname, credentials, "saml/tr", "./work/samltr", logger)
-    # execute_oxtrust_api_call_upsert(hostname, credentials, "saml/tr/update-metadata", "./work/samltr", logger)
+    # SAMLTr
+    generate_saml_jsons(f"{objects_folder}/samltr", logger)
+    execute_oxtrust_api_call_upsert(hostname, credentials, "saml/tr", "./work/samltr", logger)
 
     # IDP-Initiated Flows
     deploy_initiated_flows(db_host, db_port, db_user, db_pwd, db_name, f"{objects_folder}/oxpassport-config/oxpassport.ldif", logger)
