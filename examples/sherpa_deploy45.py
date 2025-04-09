@@ -1,13 +1,16 @@
 import sys
+import glob
 import os
 import base64
 import json
+import mysql.connector
 from ldif import LDIFParser
 from sherpa.utils.basics import Properties
 from sherpa.utils.basics import Logger
 from sherpa.utils import os_cmd
 from sherpa.gluu import gluu_lib
 from sherpa.gluu.gluu_lib import OxTrustAPIClient
+from io import BytesIO
 
 
 def encode_credentials(client_id, client_secret):
@@ -100,6 +103,139 @@ def generate_saml_jsons(samltr_folder, logger):
                     json.dump(tr_json, f, indent=4)
                 logger.debug(f"Generated JSON: {json_path}")
 
+def read_passport_config_from_database(host, port, user, password, database, table_name, logger):
+    try:
+        connection = mysql.connector.connect(
+            host=host,
+            port=port,
+            user=user,
+            password=password,
+            database=database
+        )
+        cursor = connection.cursor(dictionary=True)
+        query = f"SELECT * FROM {table_name}"
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        logger.debug(f"Reading from {database} table {table_name}")
+        if cursor.rowcount > 0:
+            return rows[0]['gluuPassportConfiguration']
+    except mysql.connector.Error as err:
+        logger.debug(f"Database error: {err}")
+        return []
+    finally:
+        if 'connection' in locals() and connection.is_connected():
+            cursor.close()
+            connection.close()
+            logger.debug("MySQL connection closed")
+
+def update_passport_config_to_database(host, port, user, password, database, table_name, new_configuration, logger):
+    try:
+        # Connect to the MySQL database
+        connection = mysql.connector.connect(
+            host=host,
+            port=port,
+            user=user,
+            password=password,
+            database=database
+        )
+
+        logger.debug(f"Updating gluuPassportConfiguration as :  {new_configuration}")
+        cursor = connection.cursor()
+        json_new_configuration = json.dumps(new_configuration, ensure_ascii=True)
+
+        # Update the gluuPassportConfiguration column in the table
+        query = f"UPDATE {table_name} SET gluuPassportConfiguration = %s"
+        cursor.execute(query, (json_new_configuration,))
+
+        # Commit the transaction
+        connection.commit()
+
+        logger.debug(f"Successfully updated gluuPassportConfiguration in {table_name}")
+        return True
+
+    except mysql.connector.Error as err:
+        logger.debug(f"Database error: {err}")
+        return False
+
+    finally:
+        if 'connection' in locals() and connection.is_connected():
+            cursor.close()
+            connection.close()
+            logger.debug("MySQL connection closed")
+
+def add_authorization_params_to_gluu_configs(passport_configs, new_auth_param, logger):
+    passport_configs_updated = json.loads(passport_configs)
+    v_array = passport_configs_updated.get('v', [])
+    if not v_array or len(v_array) == 0:
+        raise ValueError("'v' array not found or empty in the JSON")
+
+    # Parse the inner JSON string
+    inner_json = json.loads(v_array[0])
+
+    # Extract the authorizationParams array
+    if 'idpInitiated' not in inner_json or 'authorizationParams' not in inner_json['idpInitiated']:
+        raise ValueError("authorizationParams not found in the JSON structure")
+
+    auth_params = inner_json['idpInitiated']['authorizationParams']
+
+    if new_auth_param:
+        for each_new_param in new_auth_param:
+            auth_params.append(each_new_param)
+
+    # Update the inner JSON with the modified authorizationParams
+    inner_json['idpInitiated']['authorizationParams'] = auth_params
+
+    # Convert the inner JSON back to a string
+    updated_inner_json_string = json.dumps(inner_json)
+
+    # Update the original 'v' array
+    passport_configs_updated['v'] = [updated_inner_json_string]
+    return passport_configs_updated
+
+def extract_authorization_params(ldif_file, logger):
+    logger.debug(f"Extracting from {ldif_file}")
+    with open(ldif_file, 'r', encoding='utf-8') as ldif_content:
+        parser = LDIFParser(BytesIO(ldif_content.read().encode('utf-8')))
+        for dn, entry in parser.parse():
+            if 'gluuPassportConfiguration' in entry:
+                json_string = entry['gluuPassportConfiguration'][0]
+                passport_config = json.loads(json_string)
+                if 'idpInitiated' in passport_config and 'authorizationParams' in passport_config['idpInitiated']:
+                    auth_params = passport_config['idpInitiated']['authorizationParams']
+    return auth_params
+
+def deploy_initiated_flows(host, port, db_user, db_pwd, db_name, ldif_file, logger):
+    gluu_passport_configs_from_db = read_passport_config_from_database(host, port, db_user, db_pwd, db_name, "oxPassportConfiguration", logger)
+    logger.debug(f"Current passport configs in DB : {gluu_passport_configs_from_db}")
+    auth_parameters_from_ldif_files = extract_authorization_params(ldif_file,logger)
+    logger.debug(f"Extracted params: f{auth_parameters_from_ldif_files}")
+    alterd_gluu_configs = add_authorization_params_to_gluu_configs(gluu_passport_configs_from_db, auth_parameters_from_ldif_files, logger)
+    logger.debug(alterd_gluu_configs)
+    update_passport_config_to_database( host, port, db_user, db_pwd, db_name, "oxPassportConfiguration", alterd_gluu_configs, logger)
+
+def prepare_scripts(script_json_folder, script_code_folder, logger):
+    work_folder = "./work/scripts"
+    logger.debug("Deleting old work files.")
+    os_cmd.execute_in_bash(f"rm -f {work_folder}/*.json", logger)
+    os_cmd.execute_in_bash(f"mkdir -p {work_folder}", logger)
+    logger.debug("Copying scripts to work directory")
+    os_cmd.execute_in_bash(f"/bin/cp -f {script_json_folder}/*.json {work_folder}", logger)
+
+    for directory_entry in sorted(os.scandir(work_folder), key=lambda path: path.name):
+        if directory_entry.is_file() and directory_entry.path.endswith(".json"):
+            logger.debug("Processing file: {}", directory_entry.path)
+
+            with open(directory_entry.path) as json_file:
+                json_data = json.load(json_file)
+
+            script_path = os.path.join(script_code_folder, f"{json_data.get('name')}.py")
+            with open(script_path) as script_file:
+                json_data["script"] = script_file.read()
+
+            with open(directory_entry.path, 'w') as out_file:
+                json.dump(json_data, out_file, indent=2)
+
+
 def main():
 
     local_properties = Properties("./local.properties", "./default.properties")
@@ -113,10 +249,18 @@ def main():
 
     # objects-folder name
     objects_folder = local_properties.get("deploy_idp_objects_folder")
+    script_code_folder = local_properties.get("deploy_idp_script_code_folder")
 
     # get old and new gluu instances salts
     old_salt = local_properties.get("backup_idp_salt_value")
     new_salt = local_properties.get("deploy_idp_salt_value")
+
+    # get db info
+    db_host = local_properties.get("deploy_db_host")
+    db_port = local_properties.get("deploy_db_port")
+    db_user = local_properties.get("deploy_db_user")
+    db_pwd = local_properties.get("deploy_db_pwd")
+    db_name = local_properties.get("deploy_db_name")
 
     # ox-settings
     execute_oxtrust_api_call_update(hostname, credentials, "configuration/settings", f"{objects_folder}/ox-settings/ox-settings.json", logger)
@@ -127,14 +271,15 @@ def main():
     # oxtrust-settings
     execute_oxtrust_api_call_update(hostname, credentials, "configuration/oxtrust/settings", f"{objects_folder}/oxtrust-settings/oxtrust-settings.json", logger)
 
+    # attributes
+    execute_oxtrust_api_call_upsert(hostname, credentials, "attributes", f"{objects_folder}/attributes", logger)
+
     # scripts
-    execute_oxtrust_api_call_upsert(hostname, credentials, "configuration/scripts", f"{objects_folder}/scripts", logger)
+    prepare_scripts(f"{objects_folder}/scripts", script_code_folder, logger)
+    execute_oxtrust_api_call_upsert(hostname, credentials, "configuration/scripts", "./work/scripts", logger)
 
     # scopes
     execute_oxtrust_api_call_upsert(hostname, credentials, "scopes", f"{objects_folder}/scopes", logger)
-
-    # attributes
-    execute_oxtrust_api_call_upsert(hostname, credentials, "attributes", f"{objects_folder}/attributes", logger)
 
     # clients
     saltify_client_secrets(old_salt, new_salt, f"{objects_folder}/clients", logger)
@@ -146,13 +291,13 @@ def main():
     # https://gluu.org/auth/oxtrust.passportprovider.read
     execute_oxtrust_api_call_upsert(hostname, credentials, "passport/providers", f"{objects_folder}/passport-providers", logger)
 
-    # SAMLTr
-    generate_saml_jsons(f"{objects_folder}/samltr", logger)
-    execute_oxtrust_api_call_upsert(hostname, credentials, "saml/tr", "./work/samltr", logger)
-    execute_oxtrust_api_call_upsert(hostname, credentials, "saml/tr/update-metadata", "./work/samltr", logger)
+    # # SAMLTr
+    # generate_saml_jsons(f"{objects_folder}/samltr", logger)
+    # execute_oxtrust_api_call_upsert(hostname, credentials, "saml/tr", "./work/samltr", logger)
+    # execute_oxtrust_api_call_upsert(hostname, credentials, "saml/tr/update-metadata", "./work/samltr", logger)
 
-    # IDP-Initiated Flows - Manual step
-    # copy/paste the idpInitiated obj inside the oxpassport obj
+    # IDP-Initiated Flows
+    deploy_initiated_flows(db_host, db_port, db_user, db_pwd, db_name, f"{objects_folder}/oxpassport-config/oxpassport.ldif", logger)
 
 
 if __name__ == '__main__':
