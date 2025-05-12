@@ -929,28 +929,22 @@ def get_salt_from_eks(logger):
 
 def encode_with_gluu_salt(data, salt):
     """
-    encode a string with gluu salt
-    :param data: string to be encoded
-    :param salt: salt value
-    :return:
+    Encode a string or bytes with Gluu salt using Triple DES and return Base64.
+    
+    :param data: string or bytes to be encoded
+    :param salt: salt value (must be 16 or 24 bytes for Triple DES)
+    :return: Base64-encoded encrypted string
     """
-    engine = triple_des(salt, ECB, pad=None, padmode=PAD_PKCS5)
-    en_data = engine.encrypt(data.encode('ascii'))
-    b64_data = base64.b64encode(en_data).decode()
-    return b64_data
+    if isinstance(data, str):
+        data_bytes = data.encode('utf-8')
+    elif isinstance(data, bytes):
+        data_bytes = data
+    else:
+        raise TypeError("data must be of type str or bytes")
 
-
-def encode_bytes_with_gluu_salt(data_bytes, salt):
-    """
-    encode a string with gluu salt
-    :param data_bytes: bytes[] to be encoded
-    :param salt: salt value
-    :return:
-    """
     engine = triple_des(salt, ECB, pad=None, padmode=PAD_PKCS5)
-    en_data = engine.encrypt(data)
-    b64_data = base64.b64encode(en_data).decode()
-    return b64_data
+    encrypted = engine.encrypt(data_bytes)
+    return base64.b64encode(encrypted).decode()
 
 
 def decode_with_gluu_salt(data, salt):
