@@ -1,5 +1,5 @@
 # sherpa-py-gluu is available under the MIT License. https://github.com/Identicum/sherpa-py-gluu/
-# Copyright (c) 2024, Identicum - https://identicum.com/
+# Copyright (c) 2025, Identicum - https://identicum.com/
 #
 # Author: Gustavo J Gallardo - ggallard@identicum.com
 #
@@ -8,7 +8,7 @@ from setuptools import setup
 
 setup(
     name='sherpa-py-gluu',
-    version='1.0.20250131',
+    version='1.0.20250511',
     description='Python utilities for Gluu',
     url='git@github.com:Identicum/sherpa-py-gluu.git',
     author='Identicum',
