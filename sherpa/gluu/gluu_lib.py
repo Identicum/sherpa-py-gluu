@@ -304,7 +304,7 @@ class OxTrustAPIClient:
                             "configuration/settings",
                             "configuration/ldap",
                             "configuration/smtp",
-                            "passport/config"
+                            "passport/config",
                             "acrs"
                             ]
         available_endpoints = {
