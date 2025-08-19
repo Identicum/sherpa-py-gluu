@@ -1,27 +1,27 @@
 # sherpa-py-gluu is available under the MIT License. https://github.com/Identicum/sherpa-py-gluu/
-# Copyright (c) 2024, Identicum - https://identicum.com/
+# Copyright (c) 2025, Identicum - https://identicum.com/
 #
 # Author: Gustavo J Gallardo - ggallard@identicum.com
 #
 
+import base64
 import ldap
 import ldap.dn
+from ldap.dn import str2dn
 import ldap.modlist
-import urllib3
+from ldif import LDIFParser, LDIFWriter
 import json
-import base64
 import os
+from os import listdir
+from os.path import isfile, join, isdir
 from pyDes import *
 from sherpa.utils.clients import OIDCClient
 from sherpa.utils.clients import UMAClient
-from os import listdir
-from os.path import isfile, join, isdir
 from sherpa.utils import validators
-from ldap.dn import str2dn
-from ldif import LDIFParser, LDIFWriter
 from sherpa.utils.basics import Logger
 from sherpa.utils import http
 from sherpa.utils import os_cmd
+import urllib3
 
 
 ########################################################################################################################
@@ -884,6 +884,7 @@ def get_transformer(type_name, json_data, main_path=None):
     transformer_class = transformers.get(type_name, GluuTransformer)
     return transformer_class(json_data, main_path)
 
+
 def test_oxtrust_api(idp_url, client_id, client_secret, logger):
     logger.info("Testing oxTrust API configuration")
     logger.info("Checking access to IDP (oxauth, oxtrust)")
@@ -929,20 +930,29 @@ def get_salt_from_eks(logger):
 
 def encode_with_gluu_salt(data, salt):
     """
-    encode a string with gluu salt
-    :param data: string to be encoded
-    :param salt: salt value
-    :return:
+    Encode a string or bytes with Gluu salt using Triple DES and return Base64.
+    
+    :param data: string or bytes to be encoded
+    :param salt: salt value (must be 16 or 24 bytes for Triple DES)
+    :return: Base64-encoded encrypted string
     """
+    if isinstance(data, str):
+        data_bytes = data.encode('utf-8')
+    elif isinstance(data, bytes):
+        data_bytes = data
+    else:
+        raise TypeError("data must be of type str or bytes")
+
     engine = triple_des(salt, ECB, pad=None, padmode=PAD_PKCS5)
-    en_data = engine.encrypt(data.encode('ascii'))
-    b64_data = base64.b64encode(en_data).decode()
-    return b64_data
+    encrypted = engine.encrypt(data_bytes)
+    return base64.b64encode(encrypted).decode()
+
 
 def decode_with_gluu_salt(data, salt):
     cipher = triple_des(salt)
     decrypted = cipher.decrypt(base64.b64decode(data), padmode=PAD_PKCS5)
     return decrypted
+
 
 def gluu_decode(salt_file, data):
     f = open(salt_file)
@@ -961,6 +971,7 @@ def gluu_encode(salt_file, data):
     en_data = engine.encrypt(data.encode('ascii'))
     b64_data = base64.b64encode(en_data).decode()
     return b64_data
+
 
 def get_documents_from_ldif(ldif_file, logger):
     gluu4json = Gluu4JSON(logger)
