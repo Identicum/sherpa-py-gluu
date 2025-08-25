@@ -643,7 +643,7 @@ class PassportProvider41to45Transformer(GluuTransformer):
                     "id": "id",
                     "displayName": "displayName",
                     "type": "type",
-                    "logo_img": "logo_img",
+                    "mapping": "mapping",
                     "passportStrategyId": "passportStrategyId",
                     "enabled": "enabled",
                     "callbackUrl": "callbackUrl",
