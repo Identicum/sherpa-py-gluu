@@ -651,6 +651,13 @@ class PassportProvider41to45Transformer(GluuTransformer):
                     "emailLinkingSafe": "emailLinkingSafe",
                     "options": "options",
                 })
+
+        # Extra rule for saml providers
+        if transformed_data.get("type") == "saml":
+            options = transformed_data.get("options") or {}
+            options["wantAssertionsSigned"] = "false"
+            transformed_data["options"] = options
+
         self.data = transformed_data
         return self
 
