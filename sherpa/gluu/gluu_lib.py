@@ -654,8 +654,24 @@ class PassportProvider41to45Transformer(GluuTransformer):
 
         # Extra rule for saml providers
         if transformed_data.get("type") == "saml":
-            options = transformed_data.get("options") or {}
+            options = transformed_data.get("options")
             options["wantAssertionsSigned"] = "false"
+            transformed_data["options"] = options
+
+        # OpenID Client: ensure scope is a JSON-array-as-string and includes "openid"
+        if transformed_data.get("type") == "openid-client":
+            options = transformed_data["options"]
+            scope_val = options.get("scope")
+
+            if isinstance(scope_val, str) and scope_val.strip():
+                parts = scope_val.split()
+                if "openid" not in parts:
+                    parts.append("openid")
+                parts = list(dict.fromkeys(parts))
+                options["scope"] = "[" + ",".join(f"\"{p}\"" for p in parts) + "]"
+            else:
+                options["scope"] = "[\"openid\"]"
+
             transformed_data["options"] = options
 
         self.data = transformed_data
