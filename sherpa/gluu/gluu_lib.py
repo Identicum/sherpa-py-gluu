@@ -777,12 +777,12 @@ class Client41to45Transformer(GluuTransformer):
             "logoutUri"
         ]))
 
-        gt = transformed_data.get("grantTypes", None)
+        gt = transformed_data.get("defaultAcrValues", None)
         if isinstance(gt, list):
             if len(gt) == 1:
-                transformed_data["grantTypes"] = gt[0]
+                transformed_data["defaultAcrValues"] = gt[0]
             elif len(gt) > 1 and any(isinstance(x, str) and x == "cxic_login" for x in gt):
-                transformed_data["grantTypes"] = "cxic_login"
+                transformed_data["defaultAcrValues"] = "cxic_login"
 
         if transformed_data.get("logoutUri") is None:
             transformed_data.pop("logoutUri", None)
