@@ -764,8 +764,7 @@ class Client41to45Transformer(GluuTransformer):
             "requireAuthTime": "requireAuthTime",
             "subjectType": "subjectType",
             "tokenEndpointAuthMethod": "tokenEndpointAuthMethod",
-            "attributes": "attributes",
-            "oxAuthLogoutSessionRequired": "oxAuthLogoutSessionRequired"
+            "attributes": "attributes"
         })
 
         transformed_data.update(self.map_list_attrs([
@@ -775,7 +774,7 @@ class Client41to45Transformer(GluuTransformer):
             "oxAuthRedirectURIs",
             "oxAuthScopes",
             "responseTypes",
-            "oxAuthLogoutURI"
+            "logoutUri"
         ]))
 
         self.data = transformed_data
