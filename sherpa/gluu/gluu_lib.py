@@ -313,7 +313,8 @@ class OxTrustAPIClient:
             'scopes': 'scopes',
             'configuration/scripts': 'scripts',
             'passport/providers': 'passport/providers',
-            'saml/tr/update': 'saml/tr/update'
+            'saml/tr/update': 'saml/tr/update',
+            'sectoridentifiers': 'sectoridentifiers'
         }
         if endpoint in config_endpoints:
             current_obj = self.uma_client.execute("GET", endpoint)
