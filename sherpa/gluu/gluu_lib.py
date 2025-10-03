@@ -21,6 +21,8 @@ from sherpa.utils import validators
 from sherpa.utils.basics import Logger
 from sherpa.utils import http
 from sherpa.utils import os_cmd
+from urllib.request import urlopen
+from urllib.error import URLError, HTTPError
 import urllib3
 
 
@@ -741,6 +743,17 @@ class Client41to45Transformer(GluuTransformer):
             "Passport Resource Server Client", "SCIM Requesting Party Client", "SCIM Resource Server Client"
             ]
 
+    def _fetch_sector_redirect_uris(self, url: str):
+        if not url or not isinstance(url, str):
+            return []
+        try:
+            with urlopen(url, timeout=8) as resp:
+                data = resp.read().decode("utf-8", errors="replace")
+            payload = json.loads(data)
+            return payload if isinstance(payload, list) and all(isinstance(x, str) for x in payload) else []
+        except (URLError, HTTPError, json.JSONDecodeError, TimeoutError, ValueError):
+            return []
+
     def transform(self):
         """Transforms the client data using the mapping functions."""
         transformed_data = self.map_single_attrs({
@@ -787,6 +800,24 @@ class Client41to45Transformer(GluuTransformer):
 
         if transformed_data.get("logoutUri") is None:
             transformed_data.pop("logoutUri", None)
+
+        sector_url = transformed_data.get("sectorIdentifierUri")
+        if sector_url:
+            fetched_uris = self._fetch_sector_redirect_uris(sector_url)
+
+            base = transformed_data.get("oxAuthRedirectURIs") or []
+            if not isinstance(base, list):
+                base = [base] if isinstance(base, str) else []
+
+            seen = set()
+            merged = []
+            for uri in base + fetched_uris:
+                if isinstance(uri, str) and uri not in seen:
+                    merged.append(uri)
+                    seen.add(uri)
+
+            transformed_data["oxAuthRedirectURIs"] = merged
+        transformed_data.pop("sectorIdentifierUri", None)
 
         self.data = transformed_data
         return self
