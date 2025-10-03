@@ -313,8 +313,7 @@ class OxTrustAPIClient:
             'scopes': 'scopes',
             'configuration/scripts': 'scripts',
             'passport/providers': 'passport/providers',
-            'saml/tr/update': 'saml/tr/update',
-            'sectoridentifiers': 'sectoridentifiers'
+            'saml/tr/update': 'saml/tr/update'
         }
         if endpoint in config_endpoints:
             current_obj = self.uma_client.execute("GET", endpoint)
@@ -674,33 +673,6 @@ class PassportProvider41to45Transformer(GluuTransformer):
                 options["scope"] = "[\"openid\"]"
 
             transformed_data["options"] = options
-
-        self.data = transformed_data
-        return self
-
-class sectoridentifiers41to45Transformer(GluuTransformer):
-    """sector identifier transformer between Gluu 4.1 y 4.5."""
-
-    def subfolder(self):
-        return "sector-providers"
-
-    def id_attr(self):
-        return "id"
-
-    def default_objs(self):
-        return []
-
-    def transform(self):
-        transformed_data = self.map_single_attrs({
-            "dn": "dn",
-            "selected": "selected",
-            "id": "id",
-            "description": "description",
-            "loginUri": "loginUri",
-            "baseDn": "baseDn"
-        })
-
-        transformed_data.update(self.map_list_attrs([ "clientIds", "redirectUris" ]))
 
         self.data = transformed_data
         return self
