@@ -677,6 +677,33 @@ class PassportProvider41to45Transformer(GluuTransformer):
         self.data = transformed_data
         return self
 
+class sectoridentifiers41to45Transformer(GluuTransformer):
+    """sector identifier transformer between Gluu 4.1 y 4.5."""
+
+    def subfolder(self):
+        return "sector-providers"
+
+    def id_attr(self):
+        return "id"
+
+    def default_objs(self):
+        return []
+
+    def transform(self):
+        transformed_data = self.map_single_attrs({
+            "dn": "dn",
+            "selected": "selected",
+            "id": "id",
+            "description": "description",
+            "loginUri": "loginUri",
+            "baseDn": "baseDn"
+        })
+
+        transformed_data.update(self.map_list_attrs([ "clientIds", "redirectUris" ]))
+
+        self.data = transformed_data
+        return self
+
 class Attribute41to45Transformer(GluuTransformer):
     """attribute transformer between Gluu 4.1 y 4.5."""
 
@@ -764,7 +791,8 @@ class Client41to45Transformer(GluuTransformer):
             "requireAuthTime": "requireAuthTime",
             "subjectType": "subjectType",
             "tokenEndpointAuthMethod": "tokenEndpointAuthMethod",
-            "attributes": "attributes"
+            "attributes": "attributes",
+            "sectorIdentifierUri": "sectorIdentifierUri"
         })
 
         transformed_data.update(self.map_list_attrs([
