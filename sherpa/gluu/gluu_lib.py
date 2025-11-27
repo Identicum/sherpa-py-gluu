@@ -848,8 +848,8 @@ class OxAuthSettings41to45(GluuTransformer):
            "keyStoreSecret", "fido2Configuration"
        ]
 
-
         self.data = {key: value for key, value in transformed_data.items() if key not in keys_to_remove}
+        self.data['introspectionScriptBackwardCompatibility'] = True
         return self
 
 class OxTrustSettings41to45(GluuTransformer):
