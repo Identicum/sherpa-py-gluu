@@ -925,7 +925,8 @@ class GluuBackup:
             else:
                 entity_id = entity.get(file_attr_name)
                 if entity_id not in (set(transformer.default_objs()) - set(include_default)):
-                    file_name = f"{entity_id}.json"
+                    file_identifier = "inum" if entity_type == "client41to45" else entity_id
+                    file_name = f"{file_identifier}.json"
                     transformer.transform().save_to_file(file_name)
 
         self.logger.debug(f"{len(entities)} items backed up to {self.output_path or 'backup'}.")
