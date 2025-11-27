@@ -658,10 +658,15 @@ class PassportProvider41to45Transformer(GluuTransformer):
         if transformed_data.get("type") == "saml":
             options = transformed_data.get("options")
             options["wantAssertionsSigned"] = "false"
+            transformed_data["passportStrategyId"] = "@node-saml/passport-saml"
+            if "cert" in options:
+                options["idpCert"] = options.pop("cert") or "fakeCert"
+            if "entryPoint" in options and options["entryPoint"].startswith("https://login.microsoftonline.com"):
+                options["wantAuthnResponseSigned"] = "false"
             transformed_data["options"] = options
 
-        # OpenID Client: ensure scope is a JSON-array-as-string and includes "openid"
-        if transformed_data.get("type") == "openid-client":
+    # OpenID Client: ensure scope is a JSON-array-as-string and includes "openid"
+        if transformed_data.get("type") == "openidconnect":
             options = transformed_data["options"]
             scope_val = options.get("scope")
 
@@ -675,6 +680,11 @@ class PassportProvider41to45Transformer(GluuTransformer):
                 options["scope"] = "[\"openid\"]"
 
             transformed_data["options"] = options
+
+            transformed_data["type"] = "openid-client"
+            transformed_data["mapping"] = "openid-client"
+            transformed_data["passportStrategyId"] = "openid-client"
+
 
         self.data = transformed_data
         return self
