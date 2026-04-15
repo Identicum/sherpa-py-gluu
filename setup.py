@@ -8,7 +8,7 @@ from setuptools import setup
 
 setup(
     name='sherpa-py-gluu',
-    version='1.1.1',
+    version='1.1.2',
     description='Python utilities for Gluu',
     url='git@github.com:Identicum/sherpa-py-gluu.git',
     author='Identicum',
